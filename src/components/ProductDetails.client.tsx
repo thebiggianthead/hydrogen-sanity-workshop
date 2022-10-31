@@ -8,10 +8,27 @@ import {
   AddToCartButton,
 } from "@shopify/hydrogen";
 
+import {PortableText} from '@portabletext/react'
+
 import { Product, MediaConnection } from "@shopify/hydrogen/storefront-api-types";
 type MediaNodes = MediaConnection['nodes'];
 
-export default function ProductDetails({ product }: { product: Product }) {
+type SanityProductPage = {
+  _id: string;
+  available: boolean;
+  gid: string;
+  slug: string;
+  body: [];
+  variants: [{
+    id: string;
+    dimensions: {
+      width: number;
+      height: number;
+    }
+  }]
+};
+
+export default function ProductDetails({ product, sanityProduct }: { product: Product; sanityProduct: SanityProductPage; }) {
   return (
     <ProductOptionsProvider data={product}>
       <section className="w-full overflow-x-hidden gap-4 md:gap-8 grid px-6 md:px-8 lg:px-12">
@@ -30,12 +47,31 @@ export default function ProductDetails({ product }: { product: Product }) {
                 {product.vendor}
               </span>
             </div>
-            <ProductForm product={product} />
+            <ProductForm product={product} sanityProduct={sanityProduct} />
             <div className="mt-8">
               <div
-                className="prose border-t border-gray-200 pt-6 text-black text-md"
-                dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
-              ></div>
+                className="prose border-t border-gray-200 pt-6 text-black text-md">
+                <PortableText value={sanityProduct.body} components={{
+                  types: {
+                    blockCallout: ({value}) => {
+                      const {text, link} = value
+                      return (
+                        <div className="mr-auto flex flex-col items-start">
+                          {link ? (
+                            <a href={link} className="mt-4 text-4xl">
+                              {text}
+                            </a>
+                          ) : (
+                            <div className='text-4xl'>
+                              {text}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                  }}}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -44,8 +80,9 @@ export default function ProductDetails({ product }: { product: Product }) {
   );
 }
 
-function ProductForm({ product }: { product: Product }) {
+function ProductForm({ product, sanityProduct }: { product: Product, sanityProduct: SanityProductPage }) {
   const { options, selectedVariant } = useProductOptions();
+  const currentSanityVariant = sanityProduct && selectedVariant && sanityProduct.variants.find(variant => variant.id === selectedVariant.id)
 
   return (
     <form className="grid gap-10">
@@ -73,6 +110,13 @@ function ProductForm({ product }: { product: Product }) {
       }
       {selectedVariant && (
         <>
+          {currentSanityVariant?.dimensions?.width && currentSanityVariant?.dimensions?.height && (
+            <div>
+              <span className="inline rounded-full text-xs font-bold bg-slate-500 text-white p-2 px-4">
+                {`${currentSanityVariant?.dimensions?.width}mm x ${currentSanityVariant?.dimensions?.height}mm`}
+              </span>
+            </div>
+          )}
           <div>
             <ProductPrice
               className="text-gray-500 line-through text-lg font-semibold"

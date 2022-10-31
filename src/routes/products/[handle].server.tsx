@@ -13,12 +13,39 @@ import type { Product } from '@shopify/hydrogen/storefront-api-types';
 import { Layout } from "../../components/Layout.server";
 import ProductDetails from "../../components/ProductDetails.client";
 
+// ...other imports
+import groq from 'groq';
+import useSanityQuery from '../../hooks/useSanityQuery';
+
 type ShopifyPayload = {
   product: Product
 };
 
-export default function ProductRoute() {
+const QUERY_SANITY = groq`
+  *[
+    _type == 'product'
+    && store.slug.current == $slug
+  ][0]{
+    _id,
+    "available": !store.isDeleted && store.status == 'active',
+    "gid": store.gid,
+    "slug": store.slug.current,
+    body,
+    "variants": store.variants[]->{
+      "id": store.gid,
+      dimensions
+    }
+  }
+`;
+
+export default function ProductRoute({ params }) {
   const { handle } = useRouteParams();
+
+  // Fetch Sanity document
+  const {data: sanityProduct} = useSanityQuery({
+    params: {slug: handle},
+    query: QUERY_SANITY,
+  });
 
   const { data: { product } }: {data: { product: Product }} = useShopQuery<ShopifyPayload>({
     query: PRODUCT_QUERY,
@@ -39,7 +66,7 @@ export default function ProductRoute() {
       <Suspense>
         <Seo type="product" data={product} />
       </Suspense>
-      <ProductDetails product={product} />
+      <ProductDetails product={product} sanityProduct={sanityProduct} />
     </Layout>
   );
 }
